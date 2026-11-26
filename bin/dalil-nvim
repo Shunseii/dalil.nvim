@@ -1,0 +1,2 @@
+#!/bin/sh
+exec nvim --clean --headless -l "$(dirname "$(readlink -f "$0")")/../scripts/cli.lua" "$@"
