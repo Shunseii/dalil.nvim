@@ -16,8 +16,7 @@ Run `:checkhealth dalil` to check all three. If `ANTHROPIC_API_KEY` is set in Ne
 
 ```lua
 {
-  dir = "~/Projects/dalil.nvim",
-  name = "dalil.nvim",
+  "Shunseii/dalil.nvim",
   event = "VeryLazy", -- so restoring a Vim session can bring back its chat
   cmd = { "Dalil", "DalilOpen", "DalilNew", "DalilAsk", "DalilAdd", "DalilAddFile", "DalilMode", "DalilModel", "DalilCancel", "DalilSave", "DalilHistory", "DalilRename", "DalilDelete" },
   opts = {},
