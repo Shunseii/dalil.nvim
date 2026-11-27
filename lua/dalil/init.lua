@@ -14,6 +14,7 @@ local M = {}
 ---@field refs dalil.RefStyle how references show: "snippet" (the cited code), "short" (shortest unique file name) or "full" (the path as written)
 ---@field background string|false|nil the chat's background: a hex colour, false to keep it transparent like the editor, nil for the colorscheme's float background a little darker (solid even when the terminal is translucent)
 ---@field show_thinking boolean show Claude's thinking as a dimmed quote in the transcript
+---@field hints { model: string, effort: string, deep_model: string, deep_effort: string } the models and effort for :DalilHint, and for :DalilHint! (deep)
 local defaults = {
   cmd = { "claude-agent-acp" },
   claude_cmd = "claude",
@@ -24,6 +25,7 @@ local defaults = {
   show_thinking = true,
   background = nil,
   refs = "snippet",
+  hints = { model = "sonnet", effort = "low", deep_model = "opus", deep_effort = "medium" },
 }
 
 M.config = vim.deepcopy(defaults)
@@ -63,6 +65,9 @@ local function set_highlights()
   local cursorline = vim.api.nvim_get_hl(0, { name = "CursorLine", link = false }).bg or vim.api.nvim_get_hl(0, { name = "Pmenu", link = false }).bg
   vim.api.nvim_set_hl(0, "DalilRefChip", { fg = info, bg = cursorline and shade(cursorline, 1.25) or nil })
   vim.api.nvim_set_hl(0, "DalilRefChipActive", { fg = bg or normal.bg or 0, bg = info, bold = true })
+  -- Hints in the diagnostic-hint colour, italic: readable, and unlike a code comment.
+  local hint = vim.api.nvim_get_hl(0, { name = "DiagnosticHint", link = false }).fg or info
+  vim.api.nvim_set_hl(0, "DalilHint", { fg = hint, italic = true })
   local winbar = vim.api.nvim_get_hl(0, { name = "WinBar", link = false })
   vim.api.nvim_set_hl(0, "DalilWinBar", { fg = winbar.fg, bold = winbar.bold, bg = bg })
 
@@ -81,6 +86,7 @@ local function set_highlights()
     DalilThought = "Comment",
     DalilError = "DiagnosticError",
     DalilBusy = "DiagnosticWarn",
+    DalilHintPending = "Comment",
   }
   for group, target in pairs(links) do
     vim.api.nvim_set_hl(0, group, { link = target })
@@ -187,6 +193,8 @@ function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", vim.deepcopy(defaults), opts or {})
   session.configure(M.config)
   require("dalil.refs").configure({ style = M.config.refs })
+  local hints = require("dalil.hints")
+  hints.configure(vim.tbl_extend("force", M.config.hints, { claude_cmd = M.config.claude_cmd }))
   set_highlights()
 
   local group = vim.api.nvim_create_augroup("dalil", { clear = true })
@@ -241,6 +249,14 @@ function M.setup(opts)
   vim.api.nvim_create_user_command("DalilAdd", function(cmd)
     M.add_range({ line1 = cmd.line1, line2 = cmd.line2 })
   end, { range = true, desc = "Reference these lines in the Claude chat" })
+  vim.api.nvim_create_user_command("DalilHint", function(cmd)
+    hints.request({ line1 = cmd.line1, line2 = cmd.line2, deep = cmd.bang })
+  end, { range = true, bang = true, desc = "Ask Claude for a hint on these lines (! for a deeper one)" })
+  vim.api.nvim_create_user_command("DalilHintDelete", function(cmd)
+    hints.delete({ line1 = cmd.line1, line2 = cmd.line2 })
+  end, { range = true, desc = "Delete the hints on these lines" })
+  vim.api.nvim_create_user_command("DalilHintClear", hints.clear, { desc = "Delete every hint in this buffer" })
+  vim.api.nvim_create_user_command("DalilHintToggle", hints.toggle, { desc = "Show or hide all hints" })
   vim.api.nvim_create_user_command("DalilAsk", function(cmd)
     M.ask(cmd.args)
   end, { nargs = "+", desc = "Ask Claude" })

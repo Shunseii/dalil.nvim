@@ -94,6 +94,19 @@ Claude can look at your running Neovim when you ask about it ("what errors am I 
 
 Claude runs it only when your question calls for it; diagnostics aren't sent with every message.
 
+It can also ask your Neovim's language servers, which have already indexed the project and see unsaved edits. Claude is told to prefer these to grep for understanding how code connects:
+
+| Command | Shows |
+|---|---|
+| `dalil-nvim definition <path:line[:col]> [symbol]` | where the symbol is defined (also `type-definition`, `implementation`) |
+| `dalil-nvim references <path:line[:col]> [symbol]` | every use of it across the project |
+| `dalil-nvim hover <path:line[:col]> [symbol]` | its type and docs |
+| `dalil-nvim calls <path:line[:col]> [symbol]` | who calls the function, and what it calls |
+| `dalil-nvim symbols <path>` | an outline of the file |
+| `dalil-nvim workspace-symbols <query>` | symbols named like the query, across the project |
+
+Without a column, `symbol` names the word on the line to ask about (`dalil-nvim definition src/app.ts:42 db.query` asks about `query`). A file that isn't open is loaded in the background so its language server attaches. Right after a server starts it may only know the files it has opened so far; ask again once it has loaded the project.
+
 Your Neovim config (`stdpath("config")`) is added to every session's directories, so Claude can read and edit it from any project, and the system prompt says how a LazyVim config is laid out. References into the config become links too.
 
 ## Saved conversations
@@ -103,6 +116,23 @@ A new conversation isn't saved: it's gone when you start another one or quit. `:
 `:DalilHistory` lists the saved conversations started in the current directory, most recent first; `:DalilHistory!` lists every directory's. Opening one shows its transcript, and your next message continues its Claude session, so Claude remembers it. `:DalilRename` changes its title (Claude names it after the first message), and `:DalilDelete` deletes it.
 
 `:DalilNew` starts a fresh conversation; a saved one stays in the history.
+
+## Hints
+
+`:DalilHint` (`<leader>ae`, on the current line or a visual selection) asks Claude for a one-sentence note on what the marked code does and why it's there. It shows above the lines, indented to match, once it's ready; `…` marks one being written. `:DalilHint!` (`<leader>aE`) asks a stronger model for a longer one.
+
+Each hint is its own short `claude -p` call, separate from the chat. It's sent the marked lines, the function or class around them (from treesitter) and what the language server says about the names on them, so it rarely needs to look further; when it does it can read files and run `dalil-nvim`. It skips your user settings (hooks, plugins), which makes it several times faster; it still uses your subscription.
+
+| Command | Key | Does |
+|---|---|---|
+| `:DalilHint[!]` | `<leader>ae` / `<leader>aE` | hint for the line or selection; asking again replaces it |
+| `:DalilHintDelete` | `<leader>ad` | delete the hints on the line or selection |
+| `:DalilHintClear` | `<leader>aD` | delete every hint in the buffer |
+| `:DalilHintToggle` | `<leader>at` | hide or show all hints |
+
+The chat's Claude can write hints too ("add hints to every function in this file"), with `dalil-nvim hint <path:line[-end]> <text>`, `dalil-nvim hints [path]` and `dalil-nvim hint-delete <path[:line[-end]]>`. It writes the text itself from what it already knows, so a whole file of hints takes one turn rather than a call each. Hints on a file that isn't open show once you open it.
+
+A hint stays while you edit elsewhere and disappears when its own lines change, since it may no longer be true. Hints last until you close Neovim. Models and effort are in the `hints` option: `{ model = "sonnet", effort = "low", deep_model = "opus", deep_effort = "medium" }`.
 
 ## Vim sessions
 

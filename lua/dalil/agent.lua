@@ -119,13 +119,17 @@ local function run_lua(code)
   return #printed > 0 and printed or { "ok" }
 end
 
-local USAGE = [[
+local USAGE = [=[
 usage: dalil-nvim <command> [args]
   diagnostics [path...]   diagnostics for these files, or every open buffer
   open <path...>          load files so their language servers report diagnostics
   buffers                 open file buffers and their language servers
   messages                recent :messages (where Neovim's errors show up)
-  lua <code>              run Lua in Neovim and print the result]]
+  lua <code>              run Lua in Neovim and print the result
+  hint <path:line[-end]> <text>   show a hint (a short note) above those lines in the editor
+  hints [path]            the hints showing, and where
+  hint-delete <path[:line[-end]]>  delete hints in a file, or on those lines
+]=] .. require("dalil.lsp").USAGE
 
 ---@param args string[]
 ---@return string
@@ -141,10 +145,18 @@ function M.cli(args)
     out = buffers()
   elseif command == "messages" then
     out = messages()
+  elseif command == "hint" and #rest >= 2 then
+    out = { require("dalil.hints").cli_add(rest[1], table.concat(vim.list_slice(rest, 2), " ")) }
+  elseif command == "hints" then
+    out = { require("dalil.hints").cli_list(rest[1]) }
+  elseif command == "hint-delete" and #rest > 0 then
+    out = { require("dalil.hints").cli_delete(rest[1]) }
   elseif command == "lua" and #rest > 0 then
     out = run_lua(table.concat(rest, " "))
   else
-    out = { USAGE }
+    local needs_arg = command ~= nil and #rest > 0
+    out = needs_arg and require("dalil.lsp").run(command, rest) or nil
+    out = out or { USAGE }
   end
   return table.concat(out, "\n")
 end
